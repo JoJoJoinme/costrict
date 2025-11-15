@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useMemo, memo } from "react"
-import { VSCodeButton } from "@vscode/webview-ui-toolkit/react"
+// import { VSCodeButton } from "@vscode/webview-ui-toolkit/react"
+import { Button } from "@src/components/ui"
 import { StarIcon, StarFilledIcon, CheckCircledIcon } from "@radix-ui/react-icons"
 
 import type { InviteCodeInfo, ProviderSettings, QuotaInfo } from "@roo-code/types"
@@ -11,6 +12,9 @@ import { telemetryClient } from "@src/utils/TelemetryClient"
 import { useEvent } from "react-use"
 import { ExtensionMessage } from "@roo/ExtensionMessage"
 import { useZgsmUserInfo } from "@src/hooks/useZgsmUserInfo"
+import { useCopyToClipboard } from "@src/utils/clipboard"
+import { ClipboardCopy } from "lucide-react"
+import { StandardTooltip } from "../ui"
 
 type AccountViewProps = {
 	apiConfiguration?: ProviderSettings
@@ -108,7 +112,6 @@ const QuotaInfoDisplay = memo(
 		quotaInfo,
 		showQuotaInfo,
 		t,
-		handleGetMoreQuota,
 	}: {
 		quotaInfo: QuotaInfo
 		showQuotaInfo: boolean
@@ -216,11 +219,6 @@ const QuotaInfoDisplay = memo(
 							<span className="text-xs text-vscode-descriptionForeground font-medium">
 								{t("cloud:quota.usedQuota")}
 							</span>
-							<span
-								className="text-[10px] font-medium bg-gradient-to-br from-blue-400 to-blue-600 px-1 py-0.5 rounded-full cursor-pointer select-none text-white flex items-center gap-1"
-								onClick={handleGetMoreQuota}>
-								{t("cloud:quota.getMoreQuota")} 🎁
-							</span>
 						</div>
 						<div className="flex items-baseline gap-1">
 							<span className="text-sm font-bold text-vscode-foreground group-hover:text-vscode-focusBorder transition-colors">
@@ -239,12 +237,12 @@ const QuotaInfoDisplay = memo(
 
 const ZgsmAccountViewComponent = ({ apiConfiguration, onDone }: AccountViewProps) => {
 	const { t } = useAppTranslation()
+	const { copyWithFeedback } = useCopyToClipboard()
 	const [quotaInfo, setQuotaInfo] = useState<QuotaInfo>()
 	const [inviteCodeInfo, setInviteCodeInfo] = useState<InviteCodeInfo>()
 	const [showQuotaInfo, setShowQuotaInfo] = useState(false)
 	const [isLoadingQuota, setIsLoadingQuota] = useState(false)
 	const { userInfo, logoPic, hash } = useZgsmUserInfo(apiConfiguration?.zgsmAccessToken)
-	console.log("New Credit hash: ", hash)
 
 	// Cache static resource URI
 	const coLogoUri = useMemo(() => (window as any).COSTRICT_BASE_URI + "/logo.svg", [])
@@ -265,7 +263,7 @@ const ZgsmAccountViewComponent = ({ apiConfiguration, onDone }: AccountViewProps
 	const handleVisitCloudWebsite = useCallback(() => {
 		// Send telemetry for cloud website visit
 		telemetryClient.capture(TelemetryEventName.ACCOUNT_CONNECT_CLICKED)
-		const cloudUrl = `${apiConfiguration?.zgsmBaseUrl?.trim() || "https://zgsm.sangfor.com"}/credit/manager?state=${hash}`
+		const cloudUrl = `${apiConfiguration?.zgsmBaseUrl?.trim() || "https://zgsm.sangfor.com"}/credit/manager?state=${hash}&tab=usage`
 		vscode.postMessage({ type: "openExternal", url: cloudUrl })
 	}, [apiConfiguration?.zgsmBaseUrl, hash])
 
@@ -278,6 +276,11 @@ const ZgsmAccountViewComponent = ({ apiConfiguration, onDone }: AccountViewProps
 	const handleStarRepository = useCallback(() => {
 		vscode.postMessage({ type: "openExternal", url: "https://github.com/zgsm-ai/costrict" })
 	}, [])
+
+	const handlePurchaseQuota = useCallback(() => {
+		const cloudUrl = `${apiConfiguration?.zgsmBaseUrl?.trim() || "https://zgsm.sangfor.com"}/credit/manager?state=${hash}&tab=subscription`
+		vscode.postMessage({ type: "openExternal", url: cloudUrl })
+	}, [apiConfiguration?.zgsmBaseUrl, hash])
 
 	const onMessage = useCallback(
 		(event: MessageEvent) => {
@@ -362,9 +365,9 @@ const ZgsmAccountViewComponent = ({ apiConfiguration, onDone }: AccountViewProps
 		<div className="flex flex-col h-full p-6 bg-vscode-editor-background">
 			<div className="flex justify-between items-center mb-6">
 				<h1 className="text-xl font-semibold text-vscode-foreground">{t("cloud:title")}</h1>
-				<VSCodeButton appearance="primary" onClick={onDone}>
+				<Button variant="primary" onClick={onDone}>
 					{t("settings:common.done")}
-				</VSCodeButton>
+				</Button>
 			</div>
 			{apiConfiguration?.zgsmAccessToken ? (
 				<>
@@ -392,8 +395,32 @@ const ZgsmAccountViewComponent = ({ apiConfiguration, onDone }: AccountViewProps
 								<p className="text-xs text-vscode-descriptionForeground mb-1">{userInfo?.email}</p>
 							)}
 							{userInfo.id && (
-								<h2 className="text-xs text-vscode-descriptionForeground mb-1">ID: {userInfo.id}</h2>
+								<h2 className="text-xs text-vscode-descriptionForeground mb-1 flex items-center gap-1 whitespace-nowrap">
+									ID: {userInfo.id}
+									<StandardTooltip content={t("common:mermaid.buttons.copy")}>
+										<ClipboardCopy
+											onClick={(e) => {
+												e.stopPropagation()
+												copyWithFeedback(userInfo.id || "")
+											}}
+											aria-label="Copy message icon"
+											className="cursor-pointer w-[14px] -translate-y-0.5"
+										/>
+									</StandardTooltip>
+								</h2>
 							)}
+							<div className="w-full flex gap-2 mt-4 justify-center">
+								<span
+									className="text-[10px] font-medium bg-gradient-to-br border border-[var(--vscode-editorWidget-border)] bg-[var(--vscode-editorWidget-background)] text-[var(--vscode-editor-foreground)] px-2 py-1 rounded-full cursor-pointer select-none flex items-center gap-1"
+									onClick={handlePurchaseQuota}>
+									{t("account:purchaseQuota")}
+								</span>
+								<span
+									className="text-[10px] font-medium bg-gradient-to-br border border-[var(--vscode-editorWidget-border)] bg-[var(--vscode-editorWidget-background)] text-[var(--vscode-editor-foreground)] px-2 py-1 rounded-full cursor-pointer select-none flex items-center gap-1"
+									onClick={handleGetMoreQuota}>
+									{t("account:joinActivityForQuota")}
+								</span>
+							</div>
 							{/* Star status card */}
 							{quotaInfo?.is_star != null && (
 								<StarStatusCard quotaInfo={quotaInfo} onStarRepository={handleStarRepository} _t={t} />
@@ -411,16 +438,16 @@ const ZgsmAccountViewComponent = ({ apiConfiguration, onDone }: AccountViewProps
 						</div>
 					)}
 					<div className="flex flex-col gap-2 mt-4">
-						<VSCodeButton appearance="primary" onClick={handleVisitCloudWebsite} className="w-full">
+						<Button variant="primary" onClick={handleVisitCloudWebsite} className="w-full">
 							{t("account:visitCloudWebsite")}
-						</VSCodeButton>
+						</Button>
 						<div className="flex gap-2 mt-4">
-							<VSCodeButton appearance="secondary" onClick={handleLogoutClick} className="w-[50%]">
+							<Button variant="secondary" onClick={handleLogoutClick} className="w-[50%]">
 								{t("cloud:logOut")}
-							</VSCodeButton>
-							<VSCodeButton appearance="secondary" onClick={handleConnectClick} className="w-[50%]">
+							</Button>
+							<Button variant="secondary" onClick={handleConnectClick} className="w-[50%]">
 								{t("settings:providers.getZgsmApiKeyAgain")}
-							</VSCodeButton>
+							</Button>
 						</div>
 					</div>
 				</>
@@ -445,9 +472,9 @@ const ZgsmAccountViewComponent = ({ apiConfiguration, onDone }: AccountViewProps
 					</div>
 
 					<div className="flex flex-col gap-4">
-						<VSCodeButton appearance="primary" onClick={handleConnectClick} className="w-full">
+						<Button variant="primary" onClick={handleConnectClick} className="w-full">
 							{t("account:cloudBenefitsTitle")}
-						</VSCodeButton>
+						</Button>
 					</div>
 				</>
 			)}

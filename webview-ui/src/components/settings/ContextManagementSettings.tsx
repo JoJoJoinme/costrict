@@ -98,11 +98,9 @@ export const ContextManagementSettings = ({
 				...profileThresholds,
 				[selectedThresholdProfile]: value,
 			}
+
 			setCachedStateField("profileThresholds", newThresholds)
-			vscode.postMessage({
-				type: "profileThresholds",
-				values: newThresholds,
-			})
+			vscode.postMessage({ type: "updateSettings", updatedSettings: { profileThresholds: newThresholds } })
 		}
 	}
 	return (
@@ -142,11 +140,11 @@ export const ContextManagementSettings = ({
 							min={0}
 							max={500}
 							step={1}
-							value={[maxWorkspaceFiles ?? 200]}
+							value={[maxWorkspaceFiles ?? 300]}
 							onValueChange={([value]) => setCachedStateField("maxWorkspaceFiles", value)}
 							data-testid="workspace-files-limit-slider"
 						/>
-						<span className="w-10">{maxWorkspaceFiles ?? 200}</span>
+						<span className="w-10">{maxWorkspaceFiles ?? 300}</span>
 					</div>
 					<div className="text-vscode-descriptionForeground text-sm mt-1">
 						{t("settings:contextManagement.workspaceFiles.description")}

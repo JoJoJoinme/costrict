@@ -1,5 +1,105 @@
 # CoStrict Change Log
 
+## [2.0.13]
+
+- Add additional notes on Windows `taskkill` argument behavior in bash
+- Add API provider validation for code review features
+- Optimize settings for batch saving
+- Update branding and improve debounce timing
+- Add notification service with banner
+- Update UI style
+- Updated internationalization
+- Optimized performance
+- Optimize PDF file processing
+- Update default modelID to `Auto`
+- Fix mcp timeout setting
+- Fixed `zgsmAiCustomModelInfo` being overwritten
+- Fix `openAiHeaders` being overwritten
+- Sync roocode [last commit](https://github.com/zgsm-ai/costrict/commit/4e6cdad052d9526a8d861c6a5fc02443e46646c1)
+- Fix known issues
+
+## [2.0.12]
+
+- Fix codereview (#638)
+
+## [2.0.11]
+
+- Update docs
+- Update error message
+- Updated internationalization
+- Optimize commands parsing
+- Add purchase quota
+- Fix message queue status inconsistency
+- Sync roocode [last commit](https://github.com/zgsm-ai/costrict/commit/6e6341346e7cf9813bec995134921ee503bf5a2a)
+- Fix known issues
+
+## [2.0.10]
+
+- Update todolist ui
+- Enhance attempt_completion parsing
+- Optimize message retrieval
+- Update error message
+- Optimized tools prompts
+- Sync roocode [last commit](https://github.com/zgsm-ai/costrict/commit/4da9c3adb171dd83aed93039d686c466f1b9a378)
+- Fix known issues
+
+## [2.0.9]
+
+- Update userinfo
+- Optimize tools prompts
+- Add 413 error handle
+- Update mcp handle
+- Optimize auto completion
+- Optimize log output
+- Sync roocode [last commit](https://github.com/zgsm-ai/costrict/commit/63b4a785c1f31a4fc1c05968ae58d9dc02453e24)
+- Fix known issues
+
+## [2.0.8]
+
+- Add mode parameter to ZgsmAiHandler
+- Optimized codereview error handle
+- Update wiki to v2
+- Update file detail
+- Optimized tools prompts
+- Optimized shell config
+- Fix eliminate UI flicker during task cancellation
+- Update internationalization of agents
+- Sync roocode [last commit](https://github.com/zgsm-ai/costrict/commit/6965e5c791b4514f8f83b881a08091b4d2fbaa9a)
+- Fix known issues
+
+## [2.0.7]
+
+- Delete legacy api and add timeout handling
+- Add auto discount
+- Sync roocode [last commit](https://github.com/zgsm-ai/costrict/commit/5fb36d9c852f412d05e2e980b8af11b28ef30a3f)
+- Fix known issues
+
+## [2.0.6]
+
+- Optimized auto completion
+- simplify custom instructions
+- Updated zgsm provider default temperature
+- Optimized logging
+- Sync roocode [last commit](https://github.com/zgsm-ai/costrict/commit/ca10cba3c4634d8b15e83423ea7abb374a3f82b6)
+- Fix known issues
+
+## [2.0.5]
+
+- Optimized request sending speed
+- Reduced file read/write handle usage
+- Optimized shell/non-shell integration compatibility and command execution efficiency
+- Updated brand name to CoStrict
+- Compatible with [jetbrains codereview](https://github.com/zgsm-ai/costrict-jetbrains-agent)
+- Added review mode request headers
+- Optimized static file size
+- Optimized conversation memory usage
+- Fixed background silent editing Chinese encoding issues
+- Optimized shell integration prompts
+- Optimized readfile prompts
+- Optimized tool logs
+- Sync roocode [last commit](https://github.com/zgsm-ai/costrict/commit/ff0c65af10064cc63626ce500800a8c388a1c6b4)
+- Fix known issues
+
 ## [2.0.4]
 
 - Add support for project spec commands from .cospec directory (#583)

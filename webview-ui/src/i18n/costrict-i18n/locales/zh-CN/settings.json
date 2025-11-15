@@ -46,7 +46,7 @@
 			"projectIdDescription": "为企业或非免费套餐访问指定您的 Google Cloud 项目 ID。如使用个人账号并希望自动发现项目，请留空。如果您遇到 API 错误，建议填写项目ID。"
 		},
 		"consecutiveMistakeLimit": {
-			"description": "在显示“CoStrict 遇到问题”对话框前允许的连续错误或重复操作次数"
+			"description": "在显示“CoStrict 遇到问题”对话框前允许的连续错误或重复操作次数。设置为 0 可禁用此安全机制（它将永远不会触发）。"
 		}
 	},
 	"browser": {
@@ -94,9 +94,6 @@
 		"autoCondenseContextPercent": {
 			"description": "当上下文窗口达到此阈值时，CoStrict 将自动压缩它。"
 		},
-		"SEARCH_AND_REPLACE": {
-			"description": "启用实验性的搜索和替换工具，允许 CoStrict 在一个请求中替换搜索词的多实例。"
-		},
 		"INSERT_BLOCK": {
 			"description": "启用实验性的插入内容工具，允许 CoStrict 在特定行号插入内容，无需创建差异。"
 		},
@@ -130,6 +127,10 @@
 			"previous": "上一个结果",
 			"next": "下一个结果",
 			"close": "关闭搜索"
+		},
+		"ALWAYS_INCLUDE_FILE_DETAILS": {
+			"name": "目录详情增强",
+			"description": "启用后，CoStrict 将始终包含项目目录详细信息。"
 		}
 	},
 	"modelPicker": {
@@ -172,7 +173,7 @@
 			"noFailedFiles": "暂无失败文件信息",
 			"rebuild": "重新构建",
 			"onlyCostrictProviderSupport": "仅 CoStrict 提供商支持此服务",
-			"codebaseIndexDisabled": "Codebase 索引构建已禁用",
+			"codebaseIndexDisabled": "Codebase 索引构建已禁用：未找到工作空间文件夹",
 			"title": "语义索引构建",
 			"description": "为提高代码补全等功能效果，系统会自动将相关语义索引同步构建上传，方便模型对上下文进行分析理解。"
 		},
@@ -204,5 +205,10 @@
 			"failedToDisableCodebaseIndex": "Failed to disable codebase index:",
 			"failedToCopyToClipboard": "Failed to copy to clipboard:"
 		}
+	},
+	"autoMode": {
+		"discountTitle": "auto mode discount",
+		"discount": "{{discount}} discount",
+		"consumptionTitle": "Credit consumed using this model"
 	}
 }

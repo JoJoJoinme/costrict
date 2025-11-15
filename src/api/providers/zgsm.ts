@@ -43,7 +43,6 @@ export class ZgsmAiHandler extends BaseProvider implements SingleCompletionHandl
 	private readonly providerName = "zgsm"
 	private baseURL: string
 	private chatType?: "user" | "system"
-	private headers = {}
 	private modelInfo = {} as ModelInfo
 	private apiResponseRenderModeInfo = renderModes.fast
 	private logger: ILogger
@@ -60,10 +59,6 @@ export class ZgsmAiHandler extends BaseProvider implements SingleCompletionHandl
 		const isAzureOpenAi = urlHost === "azure.com" || urlHost.endsWith(".azure.com") || options.openAiUseAzure
 
 		this.fetchModel()
-		this.headers = {
-			...COSTRICT_DEFAULT_HEADERS,
-			...(this.options.openAiHeaders || {}),
-		}
 		const timeout = getApiRequestTimeout()
 		this.apiResponseRenderModeInfo = getApiResponseRenderMode()
 		if (isAzureAiInference) {
@@ -72,7 +67,8 @@ export class ZgsmAiHandler extends BaseProvider implements SingleCompletionHandl
 				baseURL: this.baseURL,
 				apiKey,
 				timeout,
-				defaultHeaders: this.headers,
+				maxRetries: 0,
+				defaultHeaders: COSTRICT_DEFAULT_HEADERS,
 				defaultQuery: { "api-version": this.options.azureApiVersion || "2024-05-01-preview" },
 			})
 		} else if (isAzureOpenAi) {
@@ -82,15 +78,17 @@ export class ZgsmAiHandler extends BaseProvider implements SingleCompletionHandl
 				baseURL: this.baseURL,
 				apiKey,
 				timeout,
+				maxRetries: 0,
 				apiVersion: this.options.azureApiVersion || azureOpenAiDefaultApiVersion,
-				defaultHeaders: this.headers,
+				defaultHeaders: COSTRICT_DEFAULT_HEADERS,
 			})
 		} else {
 			this.client = new OpenAI({
 				baseURL: this.baseURL,
 				apiKey,
 				timeout,
-				defaultHeaders: this.headers,
+				maxRetries: 0,
+				defaultHeaders: COSTRICT_DEFAULT_HEADERS,
 			})
 		}
 	}
@@ -167,17 +165,21 @@ export class ZgsmAiHandler extends BaseProvider implements SingleCompletionHandl
 				isGrokXAI,
 				reasoning,
 				modelInfo,
+				metadata,
 			)
 			if (fromWorkflow) {
-				Object.assign(requestOptions, {
-					extra_body: {
-						prompt_mode: "strict",
-					},
-				})
+				requestOptions.extra_body.prompt_mode = "strict"
 			}
 			let stream
+			let selectedLlm: string | undefined
+			let selectReason: string | undefined
 			try {
 				this.logger.info(`[RequestID]:`, requestId)
+
+				if (metadata?.onRequestHeadersReady && typeof metadata.onRequestHeadersReady === "function") {
+					metadata.onRequestHeadersReady(_headers)
+				}
+
 				const { data, response } = await this.client.chat.completions
 					.create(
 						requestOptions,
@@ -189,20 +191,25 @@ export class ZgsmAiHandler extends BaseProvider implements SingleCompletionHandl
 					.withResponse()
 				this.logger.info(`[ResponseID]:`, response.headers.get("x-request-id"))
 
-				stream = data
 				if (this.options.zgsmModelId === autoModeModelId) {
-					const userInputHeader = response.headers.get("x-user-input")
+					selectedLlm = response.headers.get("x-select-llm") || ""
+					selectReason = response.headers.get("x-select-reason") || ""
+					const isDev = process.env.NODE_ENV === "development"
+
+					const userInputHeader = isDev ? response.headers.get("x-user-input") : null
 					if (userInputHeader) {
 						const decodedUserInput = Buffer.from(userInputHeader, "base64").toString("utf-8")
 						this.logger.info(`[x-user-input]: ${decodedUserInput}`)
 					}
 				}
+
+				stream = data
 			} catch (error) {
 				throw handleOpenAIError(error, this.providerName)
 			}
 
 			// 6. Optimize stream processing - use batch processing and buffer
-			yield* this.handleOptimizedStream(stream, modelInfo)
+			yield* this.handleOptimizedStream(stream, modelInfo, selectedLlm, selectReason)
 		} else {
 			// Non-streaming processing
 			const requestOptions = this.buildNonStreamingRequestOptions(
@@ -212,13 +219,10 @@ export class ZgsmAiHandler extends BaseProvider implements SingleCompletionHandl
 				deepseekReasoner,
 				enabledLegacyFormat,
 				modelInfo,
+				metadata,
 			)
 			if (fromWorkflow) {
-				Object.assign(requestOptions, {
-					extra_body: {
-						prompt_mode: "strict",
-					},
-				})
+				requestOptions.extra_body.prompt_mode = "strict"
 			}
 			let response
 			try {
@@ -237,7 +241,7 @@ export class ZgsmAiHandler extends BaseProvider implements SingleCompletionHandl
 
 			yield {
 				type: "text",
-				text: response.choices[0]?.message.content || "",
+				text: response.choices?.[0]?.message.content || "",
 			}
 
 			yield this.processUsageMetrics(response.usage, modelInfo)
@@ -266,7 +270,8 @@ export class ZgsmAiHandler extends BaseProvider implements SingleCompletionHandl
 	): Record<string, string> {
 		return {
 			"Accept-Language": metadata?.language || "en",
-			...this.headers,
+			...COSTRICT_DEFAULT_HEADERS,
+			...(this.options.useZgsmCustomConfig ? (this.options.openAiHeaders ?? {}) : {}),
 			"x-quota-identity": chatType || "system",
 			"X-Request-ID": requestId,
 			"zgsm-task-id": metadata?.taskId || "",
@@ -356,18 +361,23 @@ export class ZgsmAiHandler extends BaseProvider implements SingleCompletionHandl
 		isGrokXAI: boolean,
 		reasoning: any,
 		modelInfo: ModelInfo,
-	): OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming {
+		metadata?: ApiHandlerCreateMessageMetadata,
+	): OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming & { extra_body: any } {
 		const requestOptions: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming = {
 			model: modelId,
-			temperature: this.options.modelTemperature ?? (isDeepseekReasoner ? DEEP_SEEK_DEFAULT_TEMPERATURE : 0),
+			temperature:
+				this.options.modelTemperature ?? (isDeepseekReasoner ? DEEP_SEEK_DEFAULT_TEMPERATURE : undefined),
 			messages,
 			stream: true as const,
 			...(isGrokXAI ? {} : { stream_options: { include_usage: true } }),
 			...(reasoning && reasoning),
+			extra_body: {
+				mode: metadata?.mode,
+			},
 		}
 
 		this.addMaxTokensIfNeeded(requestOptions, modelInfo)
-		return requestOptions
+		return requestOptions as OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming & { extra_body: any }
 	}
 
 	/**
@@ -380,7 +390,8 @@ export class ZgsmAiHandler extends BaseProvider implements SingleCompletionHandl
 		isDeepseekReasoner: boolean,
 		isLegacyFormat: boolean,
 		modelInfo: ModelInfo,
-	): OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming {
+		metadata?: ApiHandlerCreateMessageMetadata,
+	): OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming & { extra_body: any } {
 		const systemMessage: OpenAI.Chat.ChatCompletionUserMessageParam = {
 			role: "user",
 			content: systemPrompt,
@@ -396,7 +407,7 @@ export class ZgsmAiHandler extends BaseProvider implements SingleCompletionHandl
 		}
 
 		this.addMaxTokensIfNeeded(requestOptions, modelInfo)
-		return requestOptions
+		return requestOptions as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming & { extra_body: any }
 	}
 
 	/**
@@ -405,6 +416,8 @@ export class ZgsmAiHandler extends BaseProvider implements SingleCompletionHandl
 	private async *handleOptimizedStream(
 		stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>,
 		modelInfo: ModelInfo,
+		selectedLlm?: string,
+		selectReason?: string,
 	): ApiStream {
 		const matcher = new XmlMatcher(
 			"think",
@@ -421,15 +434,24 @@ export class ZgsmAiHandler extends BaseProvider implements SingleCompletionHandl
 		const contentBuffer: string[] = []
 		let time = Date.now()
 		let isPrinted = false
+		const isDev = process.env.NODE_ENV === "development"
+
+		// Yield selected LLM info if available (for Auto model mode)
+		if (selectedLlm && this.options.zgsmModelId === autoModeModelId) {
+			yield {
+				type: "text",
+				text: `[Selected LLM: ${selectedLlm}${selectReason ? ` (${selectReason})` : ""}]`,
+			}
+		}
 
 		// chunk
 		for await (const chunk of stream) {
-			const delta = chunk.choices[0]?.delta ?? {}
+			const delta = chunk.choices?.[0]?.delta ?? {}
 
 			// Cache content for batch processing
 			if (delta.content) {
 				contentBuffer.push(delta.content)
-				if (!isPrinted && chunk.model && this.options.zgsmModelId === autoModeModelId) {
+				if (isDev && !isPrinted && chunk.model && this.options.zgsmModelId === autoModeModelId) {
 					this.logger.info(`[Current Model]: ${chunk.model}`)
 					isPrinted = true
 				}
@@ -516,18 +538,15 @@ export class ZgsmAiHandler extends BaseProvider implements SingleCompletionHandl
 		if (systemPrompt) {
 			messages.unshift({ role: "system", content: systemPrompt })
 		}
-		const requestOptions: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
+		const requestOptions: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming & { extra_body: any } = {
 			model: metadata?.modelId || model.id,
 			messages: messages,
 			temperature: 0.9,
 			max_tokens: metadata?.maxLength ?? 300,
-		}
-
-		Object.assign(requestOptions, {
 			extra_body: {
 				prompt_mode: "raw",
 			},
-		})
+		}
 
 		// Add max_tokens if needed
 		this.addMaxTokensIfNeeded(requestOptions, modelInfo)
@@ -547,7 +566,7 @@ export class ZgsmAiHandler extends BaseProvider implements SingleCompletionHandl
 					timeout: 20000,
 				}),
 			)
-			return response.choices[0]?.message?.content || ""
+			return response.choices?.[0]?.message?.content || ""
 		} catch (error) {
 			throw handleOpenAIError(error, this.providerName)
 		}
@@ -630,7 +649,7 @@ export class ZgsmAiHandler extends BaseProvider implements SingleCompletionHandl
 
 			yield {
 				type: "text",
-				text: response.choices[0]?.message.content || "",
+				text: response.choices?.[0]?.message.content || "",
 			}
 			yield this.processUsageMetrics(response.usage)
 		}
@@ -638,7 +657,7 @@ export class ZgsmAiHandler extends BaseProvider implements SingleCompletionHandl
 
 	private async *handleStreamResponse(stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>): ApiStream {
 		for await (const chunk of stream) {
-			const delta = chunk.choices[0]?.delta
+			const delta = chunk.choices?.[0]?.delta
 			if (delta?.content) {
 				yield {
 					type: "text",

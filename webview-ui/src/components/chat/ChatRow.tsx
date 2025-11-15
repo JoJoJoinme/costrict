@@ -15,12 +15,13 @@ import { useCopyToClipboard } from "@src/utils/clipboard"
 import { useExtensionState } from "@src/context/ExtensionStateContext"
 import { findMatchingResourceOrTemplate } from "@src/utils/mcp"
 import { vscode } from "@src/utils/vscode"
-import { removeLeadingNonAlphanumeric } from "@src/utils/removeLeadingNonAlphanumeric"
-import { getLanguageFromPath } from "@src/utils/getLanguageFromPath"
+import { formatPathTooltip } from "@src/utils/formatPathTooltip"
+// import { getLanguageFromPath } from "@src/utils/getLanguageFromPath"
 import { Button } from "@src/components/ui"
 
 import { ToolUseBlock, ToolUseBlockHeader } from "../common/ToolUseBlock"
 import UpdateTodoListToolBlock from "./UpdateTodoListToolBlock"
+import { TodoChangeDisplay } from "./TodoChangeDisplay"
 import CodeAccordian from "../common/CodeAccordian"
 import MarkdownBlock from "../common/MarkdownBlock"
 import { ReasoningBlock } from "./ReasoningBlock"
@@ -70,6 +71,40 @@ import { cn } from "@/lib/utils"
 import { getJumpLine } from "@/utils/path-mentions"
 import { useZgsmUserInfo } from "@/hooks/useZgsmUserInfo"
 import { format } from "date-fns"
+import { PathTooltip } from "../ui/PathTooltip"
+
+// Helper function to get previous todos before a specific message
+function getPreviousTodos(messages: ClineMessage[], currentMessageTs: number): any[] {
+	// Find the previous updateTodoList message before the current one
+	const previousUpdateIndex = messages
+		.slice()
+		.reverse()
+		.findIndex((msg) => {
+			if (msg.ts >= currentMessageTs) return false
+			if (msg.type === "ask" && msg.ask === "tool") {
+				try {
+					const tool = JSON.parse(msg.text || "{}")
+					return tool.tool === "updateTodoList"
+				} catch {
+					return false
+				}
+			}
+			return false
+		})
+
+	if (previousUpdateIndex !== -1) {
+		const previousMessage = messages.slice().reverse()[previousUpdateIndex]
+		try {
+			const tool = JSON.parse(previousMessage.text || "{}")
+			return tool.todos || []
+		} catch {
+			return []
+		}
+	}
+
+	// If no previous updateTodoList message, return empty array
+	return []
+}
 
 interface ChatRowProps {
 	message: ClineMessage
@@ -154,12 +189,19 @@ export const ChatRowContent = ({
 	onBatchFileResponse,
 	// isFollowUpAnswered,
 	isFollowUpAnswered,
-	editable,
+	// editable,
 	searchQuery,
 }: ChatRowContentProps) => {
 	const { t } = useTranslation()
-	const { mcpServers, alwaysAllowMcp, currentCheckpoint, mode, apiConfiguration, apiRequestBlockHide } =
-		useExtensionState()
+	const {
+		mcpServers,
+		alwaysAllowMcp,
+		currentCheckpoint,
+		mode,
+		apiConfiguration,
+		clineMessages,
+		apiRequestBlockHide,
+	} = useExtensionState()
 	const { logoPic, userInfo } = useZgsmUserInfo(apiConfiguration?.zgsmAccessToken)
 	const { info: model } = useSelectedModel(apiConfiguration)
 	const [showCopySuccess, setShowCopySuccess] = useState(false)
@@ -223,13 +265,13 @@ export const ChatRowContent = ({
 		vscode.postMessage({ type: "selectImages", context: "edit", messageTs: message.ts })
 	}, [message.ts])
 
-	const [cost, apiReqCancelReason, apiReqStreamingFailedMessage] = useMemo(() => {
+	const [cost, apiReqCancelReason, apiReqStreamingFailedMessage, selectedLlm, selectReason] = useMemo(() => {
 		if (message.text !== null && message.text !== undefined && message.say === "api_req_started") {
 			const info = safeJsonParse<ClineApiReqInfo>(message.text)
-			return [info?.cost, info?.cancelReason, info?.streamingFailedMessage]
+			return [info?.cost, info?.cancelReason, info?.streamingFailedMessage, info?.selectedLlm, info?.selectReason]
 		}
 
-		return [undefined, undefined, undefined]
+		return [undefined, undefined, undefined, undefined, undefined]
 	}, [message.text, message.say])
 
 	// When resuming task, last wont be api_req_failed but a resume_task
@@ -395,6 +437,12 @@ export const ChatRowContent = ({
 		[message.ask, message.text],
 	)
 
+	// Unified diff content (provided by backend when relevant)
+	const unifiedDiff = useMemo(() => {
+		if (!tool) return undefined
+		return (tool.content ?? tool.diff) as string | undefined
+	}, [tool])
+
 	const followUpData = useMemo(() => {
 		if (message.type === "ask" && message.ask === "followup" && !message.partial) {
 			return safeJsonParse<FollowUpData>(message.text)
@@ -418,7 +466,7 @@ export const ChatRowContent = ({
 				style={{ color: "var(--vscode-foreground)", marginBottom: "-1.5px" }}></span>
 		)
 
-		switch (tool.tool) {
+		switch (tool.tool as string) {
 			case "editedExistingFile":
 			case "appliedDiff":
 				// Check if this is a batch diff request
@@ -459,12 +507,13 @@ export const ChatRowContent = ({
 						<div className="pl-6">
 							<CodeAccordian
 								path={tool.path}
-								code={tool.content ?? tool.diff}
+								code={unifiedDiff ?? tool.content ?? tool.diff}
 								language="diff"
 								progressStatus={message.progressStatus}
 								isLoading={message.partial && isLast}
 								isExpanded={isExpanded}
 								onToggleExpand={handleToggleExpand}
+								diffStats={tool.diffStats}
 							/>
 						</div>
 					</>
@@ -496,12 +545,13 @@ export const ChatRowContent = ({
 						<div className="pl-6">
 							<CodeAccordian
 								path={tool.path}
-								code={tool.diff}
+								code={unifiedDiff ?? tool.diff}
 								language="diff"
 								progressStatus={message.progressStatus}
 								isLoading={message.partial && isLast}
 								isExpanded={isExpanded}
 								onToggleExpand={handleToggleExpand}
+								diffStats={tool.diffStats}
 							/>
 						</div>
 					</>
@@ -529,12 +579,13 @@ export const ChatRowContent = ({
 						<div className="pl-6">
 							<CodeAccordian
 								path={tool.path}
-								code={tool.diff}
+								code={unifiedDiff ?? tool.diff}
 								language="diff"
 								progressStatus={message.progressStatus}
-								isLoading={message.partial && isLast}
+								isLoading={message.partial}
 								isExpanded={isExpanded}
 								onToggleExpand={handleToggleExpand}
+								diffStats={tool.diffStats}
 							/>
 						</div>
 					</>
@@ -563,18 +614,10 @@ export const ChatRowContent = ({
 			}
 			case "updateTodoList" as any: {
 				const todos = (tool as any).todos || []
-				return (
-					<UpdateTodoListToolBlock
-						todos={todos}
-						content={(tool as any).content}
-						onChange={(updatedTodos) => {
-							if (typeof vscode !== "undefined" && vscode?.postMessage) {
-								vscode.postMessage({ type: "updateTodoList", payload: { todos: updatedTodos } })
-							}
-						}}
-						editable={editable && isLast}
-					/>
-				)
+				// Get previous todos from the latest todos in the task context
+				const previousTodos = getPreviousTodos(clineMessages, message.ts)
+
+				return <TodoChangeDisplay previousTodos={previousTodos} newTodos={todos} />
 			}
 			case "newFileCreated":
 				return (
@@ -597,18 +640,19 @@ export const ChatRowContent = ({
 						<div className="pl-6">
 							<CodeAccordian
 								path={tool.path}
-								code={tool.content}
-								language={getLanguageFromPath(tool.path || "") || "log"}
-								isLoading={message.partial && isLast}
+								code={unifiedDiff ?? ""}
+								language="diff"
+								isLoading={message.partial}
 								isExpanded={isExpanded}
 								onToggleExpand={handleToggleExpand}
-								onJumpToFile={() => {
+								onJumpToFile={() =>
 									vscode.postMessage({
 										type: "openFile",
 										text: "./" + tool.path,
 										values: { line: getJumpLine(tool)[0] || 0 },
 									})
-								}}
+								}
+								diffStats={tool.diffStats}
 							/>
 						</div>
 					</>
@@ -666,10 +710,11 @@ export const ChatRowContent = ({
 										})
 									}}>
 									{tool.path?.startsWith(".") && <span>.</span>}
-									<span className="whitespace-nowrap overflow-hidden text-ellipsis text-left mr-2 rtl">
-										{removeLeadingNonAlphanumeric(tool.path ?? "") + "\u200E"}
-										{tool.reason}
-									</span>
+									<PathTooltip content={formatPathTooltip(tool.path, tool.reason)}>
+										<span className="whitespace-nowrap overflow-hidden text-ellipsis text-left mr-2 rtl">
+											{formatPathTooltip(tool.path, tool.reason)}
+										</span>
+									</PathTooltip>
 									<div style={{ flexGrow: 1 }}></div>
 									<SquareArrowOutUpRight
 										className="w-4 shrink-0 codicon codicon-link-external opacity-0 group-hover:opacity-100 transition-opacity"
@@ -1107,7 +1152,6 @@ export const ChatRowContent = ({
 							ts={message.ts}
 							isStreaming={isStreaming}
 							isLast={isLast}
-							metadata={message.metadata as any}
 						/>
 					)
 				case "api_req_started": {
@@ -1152,6 +1196,24 @@ export const ChatRowContent = ({
 									${Number(cost || 0)?.toFixed(4)}
 								</div>
 							</div>
+							{(selectedLlm || selectReason) && (
+								<div className="mt-2 flex items-center flex-wrap gap-2">
+									{selectedLlm && (
+										<div
+											className="text-xs text-vscode-descriptionForeground border-vscode-dropdown-border/50 border px-1.5 py-0.5 rounded-lg"
+											title="Selected Model">
+											{t("chat:autoMode.selectedLlm", { selectedLlm })}
+										</div>
+									)}
+									{selectReason && (
+										<div
+											className="text-xs text-vscode-descriptionForeground border-vscode-dropdown-border/50 border px-1.5 py-0.5 rounded-lg"
+											title="Selection Reason">
+											{t("chat:autoMode.selectReason", { selectReason })}
+										</div>
+									)}
+								</div>
+							)}
 							{(((cost === null || cost === undefined) && apiRequestFailedMessage) ||
 								apiReqStreamingFailedMessage) && (
 								<ErrorRow
@@ -1298,8 +1360,9 @@ export const ChatRowContent = ({
 										</div>
 										<div className="flex gap-2 pr-1">
 											<div
-												className="cursor-copy shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+												className="cursor-pointer shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
 												style={{ visibility: isStreaming ? "hidden" : "visible" }}
+												title={t("history:copyPrompt")}
 												onClick={(e) => {
 													e.stopPropagation()
 													// handleEditClick()
@@ -1324,6 +1387,7 @@ export const ChatRowContent = ({
 											<div
 												className="cursor-pointer shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
 												style={{ visibility: isStreaming ? "hidden" : "visible" }}
+												title={t("common:confirmation.deleteMessage")}
 												onClick={(e) => {
 													e.stopPropagation()
 													vscode.postMessage({ type: "deleteMessage", value: message.ts })
@@ -1373,7 +1437,7 @@ export const ChatRowContent = ({
 						</>
 					)
 				case "shell_integration_warning":
-					console.log(t("chat:shellIntegration.title"), t("chat:shellIntegration.description"))
+					// console.log(t("chat:shellIntegration.title"), t("chat:shellIntegration.description"))
 
 					return null
 				// return <CommandExecutionError />

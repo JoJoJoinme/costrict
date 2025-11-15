@@ -177,6 +177,9 @@ export interface ExtensionStateContextType extends ExtensionState {
 	setIncludeCurrentTime: (value: boolean) => void
 	includeCurrentCost?: boolean
 	setIncludeCurrentCost: (value: boolean) => void
+	notices?: Array<{ title: string; type: "always" | "once"; content: string; timestamp: number; expired: number }>
+	noticesEnabled: boolean
+	setNoticesEnabled: (value: boolean) => void
 }
 
 export const ExtensionStateContext = createContext<ExtensionStateContextType | undefined>(undefined)
@@ -249,7 +252,7 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		autoApprovalEnabled: false,
 		customModes: [],
 		maxOpenTabsContext: 20,
-		maxWorkspaceFiles: 200,
+		maxWorkspaceFiles: 300,
 		cwd: "",
 		browserToolEnabled: true,
 		telemetrySetting: "disabled",
@@ -327,6 +330,10 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 	const [prevCloudIsAuthenticated, setPrevCloudIsAuthenticated] = useState(false)
 	const [includeCurrentTime, setIncludeCurrentTime] = useState(true)
 	const [includeCurrentCost, setIncludeCurrentCost] = useState(true)
+	const [notices, setNotices] = useState<
+		Array<{ title: string; type: "always" | "once"; content: string; timestamp: number; expired: number }>
+	>([])
+	const [noticesEnabled, setNoticesEnabled] = useState(true)
 
 	const setListApiConfigMeta = useCallback(
 		(value: ProviderSettingsEntry[]) => setState((prevState) => ({ ...prevState, listApiConfigMeta: value })),
@@ -480,6 +487,14 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 							},
 						}))
 					}
+					break
+				}
+				case "zgsmNotices": {
+					// Full replacement of notices (全量替换)
+					if (message.notices !== undefined) {
+						setNotices(message.notices)
+					}
+					break
 				}
 			}
 		},
@@ -500,12 +515,13 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 	// Watch for authentication state changes and refresh Roo models
 	useEffect(() => {
 		const currentAuth = state.cloudIsAuthenticated ?? false
-		if (!prevCloudIsAuthenticated && currentAuth) {
-			// User just authenticated - refresh Roo models with the new auth token
+		const currentProvider = state.apiConfiguration?.apiProvider
+		if (!prevCloudIsAuthenticated && currentAuth && currentProvider === "roo") {
+			// User just authenticated and Roo is the active provider - refresh Roo models
 			vscode.postMessage({ type: "requestRooModels" })
 		}
 		setPrevCloudIsAuthenticated(currentAuth)
-	}, [state.cloudIsAuthenticated, prevCloudIsAuthenticated])
+	}, [state.cloudIsAuthenticated, prevCloudIsAuthenticated, state.apiConfiguration?.apiProvider])
 
 	const contextValue: ExtensionStateContextType = {
 		...state,
@@ -666,6 +682,9 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		setIncludeCurrentTime,
 		includeCurrentCost,
 		setIncludeCurrentCost,
+		notices,
+		noticesEnabled,
+		setNoticesEnabled,
 	}
 
 	return <ExtensionStateContext.Provider value={contextValue}>{children}</ExtensionStateContext.Provider>

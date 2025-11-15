@@ -1054,7 +1054,7 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 								"flex-col-reverse",
 								"min-h-0",
 								"overflow-hidden",
-								"rounded",
+								"rounded-lg",
 							)}>
 							<div
 								ref={highlightLayerRef}
@@ -1081,7 +1081,7 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 									"z-10",
 									"pb-[32px]",
 									"forced-color-adjust-none",
-									"rounded",
+									"rounded-lg",
 								)}
 								style={{
 									color: "transparent",
@@ -1345,7 +1345,11 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 						)}>
 						<ModeSelector
 							value={mode}
-							title={mode ? `${t("chat:modeSelector.title")}: ${mode}` : t("chat:selectMode")}
+							title={
+								mode
+									? `${t("chat:modeSelector.title")}: ${mode.charAt(0).toUpperCase() + mode.slice(1)}`
+									: t("chat:selectMode")
+							}
 							onChange={handleModeChange}
 							triggerClassName="min-w-[28px] text-ellipsis overflow-hidden flex-shrink"
 							modeShortcutText={modeShortcutText}

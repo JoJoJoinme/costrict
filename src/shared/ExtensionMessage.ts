@@ -23,6 +23,7 @@ import { GitCommit } from "../utils/git"
 import { McpServer } from "./mcp"
 import { Mode } from "./modes"
 import { ModelRecord, RouterModels } from "./api"
+import { INotice } from "../core/costrict/notification/notificationService"
 
 // Command interface for frontend/backend communication
 export interface Command {
@@ -86,6 +87,9 @@ export interface ExtensionMessage {
 		| "zgsmCodebaseIndexEnabled"
 		| "zgsmQuotaInfo"
 		| "zgsmInviteCode"
+		| "zgsmNotices"
+		| "settingsUpdated"
+		| "zgsmFollowupClearTimeout"
 		// zgsm
 		| "ollamaModels"
 		| "lmStudioModels"
@@ -142,6 +146,7 @@ export interface ExtensionMessage {
 		| "reviewPagePayload"
 		| "dismissedUpsells"
 		| "organizationSwitchResult"
+		| "interactionRequired"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
 	// Checkpoint warning message
@@ -237,6 +242,7 @@ export interface ExtensionMessage {
 	queuedMessages?: QueuedMessage[]
 	list?: string[] // For dismissedUpsells
 	organizationId?: string | null // For organizationSwitchResult
+	notices?: Array<INotice> // For zgsmNotices, only "always" type notices
 }
 
 export type ExtensionState = Pick<
@@ -246,9 +252,7 @@ export type ExtensionState = Pick<
 	| "zgsmCodebaseIndexEnabled"
 	| "listApiConfigMeta"
 	| "pinnedApiConfigs"
-	// | "lastShownAnnouncementId"
 	| "customInstructions"
-	// | "taskHistory" // Optional in GlobalSettings, required here.
 	| "dismissedUpsells"
 	| "autoApprovalEnabled"
 	| "alwaysAllowReadOnly"
@@ -256,10 +260,8 @@ export type ExtensionState = Pick<
 	| "alwaysAllowWrite"
 	| "alwaysAllowWriteOutsideWorkspace"
 	| "alwaysAllowWriteProtected"
-	// | "writeDelayMs" // Optional in GlobalSettings, required here.
 	| "alwaysAllowBrowser"
 	| "alwaysApproveResubmit"
-	// | "requestDelaySeconds" // Optional in GlobalSettings, required here.
 	| "alwaysAllowMcp"
 	| "alwaysAllowModeSwitch"
 	| "alwaysAllowSubtasks"
@@ -277,16 +279,11 @@ export type ExtensionState = Pick<
 	| "remoteBrowserEnabled"
 	| "cachedChromeHostUrl"
 	| "remoteBrowserHost"
-	// | "enableCheckpoints" // Optional in GlobalSettings, required here.
 	| "ttsEnabled"
 	| "ttsSpeed"
 	| "soundEnabled"
 	| "soundVolume"
-	// | "maxOpenTabsContext" // Optional in GlobalSettings, required here.
-	// | "maxWorkspaceFiles" // Optional in GlobalSettings, required here.
-	// | "showRooIgnoredFiles" // Optional in GlobalSettings, required here.
-	// | "maxReadFileLine" // Optional in GlobalSettings, required here.
-	| "maxConcurrentFileReads" // Optional in GlobalSettings, required here.
+	| "maxConcurrentFileReads"
 	| "terminalOutputLineLimit"
 	| "terminalOutputCharacterLimit"
 	| "maxReadCharacterLimit"
@@ -302,14 +299,8 @@ export type ExtensionState = Pick<
 	| "diagnosticsEnabled"
 	| "diffEnabled"
 	| "fuzzyMatchThreshold"
-	// | "experiments" // Optional in GlobalSettings, required here.
 	| "language"
-	// | "telemetrySetting" // Optional in GlobalSettings, required here.
-	// | "mcpEnabled" // Optional in GlobalSettings, required here.
-	// | "enableMcpServerCreation" // Optional in GlobalSettings, required here.
-	// | "mode" // Optional in GlobalSettings, required here.
 	| "modeApiConfigs"
-	// | "customModes" // Optional in GlobalSettings, required here.
 	| "customModePrompts"
 	| "customSupportPrompts"
 	| "enhancementApiConfigId"
@@ -411,14 +402,16 @@ export interface ClineSayTool {
 		| "switchMode"
 		| "newTask"
 		| "finishTask"
-		| "searchAndReplace"
 		| "insertContent"
 		| "generateImage"
 		| "imageGenerated"
 		| "runSlashCommand"
+		| "updateTodoList"
 	path?: string
 	diff?: string
 	content?: string
+	// Unified diff statistics computed by the extension
+	diffStats?: { added: number; removed: number }
 	regex?: string
 	filePattern?: string
 	mode?: string
@@ -426,12 +419,6 @@ export interface ClineSayTool {
 	isOutsideWorkspace?: boolean
 	isProtected?: boolean
 	additionalFileCount?: number // Number of additional files in the same read_file request
-	search?: string
-	replace?: string
-	useRegex?: boolean
-	ignoreCase?: boolean
-	startLine?: number
-	endLine?: number
 	lineNumber?: number
 	query?: string
 	batchFiles?: Array<{
@@ -446,6 +433,8 @@ export interface ClineSayTool {
 		changeCount: number
 		key: string
 		content: string
+		// Per-file unified diff statistics computed by the extension
+		diffStats?: { added: number; removed: number }
 		diffs?: Array<{
 			content: string
 			startLine?: number
@@ -507,6 +496,8 @@ export interface ClineApiReqInfo {
 	cancelReason?: ClineApiReqCancelReason
 	streamingFailedMessage?: string
 	apiProtocol?: "anthropic" | "openai"
+	selectedLlm?: string
+	selectReason?: string
 }
 
 export type ClineApiReqCancelReason = "streaming_failed" | "user_cancelled"

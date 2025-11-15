@@ -73,6 +73,7 @@ export class CompletionClient {
 
 			throw new Error(OPENAI_CLIENT_NOT_INITIALIZED)
 		}
+		// console.time("Completion response timeout");
 
 		try {
 			const response = await client.doCallApi(cp, scores, latestCompletion)
@@ -106,6 +107,7 @@ export class CompletionClient {
 			if (client) {
 				client.reqs.delete(cp.id)
 			}
+			// console.timeEnd("Completion response timeout");
 		}
 	}
 
@@ -155,6 +157,8 @@ export class CompletionClient {
 				...COSTRICT_DEFAULT_HEADERS,
 				"X-Request-ID": uuidv7(),
 			},
+			timeout: 5000,
+			maxRetries: 0,
 		})
 
 		if (!this.openai) {
@@ -248,11 +252,11 @@ export class CompletionClient {
 		this.reqs.set(cp.id, abortController)
 		// machineId
 		const client_id = getClientId()
-
-		Logger.log(`Completion [${cp.id}]: Sending API request`)
+		const requestId = uuidv7()
+		Logger.log(`[RequestID ${requestId}] Completion [${cp.id}]: Sending API request`)
 		const headers = {
 			...COSTRICT_DEFAULT_HEADERS,
-			"X-Request-ID": uuidv7(),
+			"X-Request-ID": requestId,
 			"zgsm-client-id": client_id,
 		}
 		const repo = workspace?.name?.split(" ")[0] ?? ""

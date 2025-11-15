@@ -265,8 +265,8 @@ export class WebAuthService extends EventEmitter<AuthServiceEvents> implements A
 			const state = crypto.randomBytes(16).toString("hex")
 			await this.context.globalState.update(AUTH_STATE_KEY, state)
 			const packageJSON = this.context.extension?.packageJSON
-			const publisher = packageJSON?.publisher ?? "RooVeterinaryInc"
-			const name = packageJSON?.name ?? "roo-cline"
+			const publisher = packageJSON?.publisher ?? "zgsm-ai"
+			const name = packageJSON?.name ?? "zgsm"
 			const params = new URLSearchParams({
 				state,
 				auth_redirect: `${vscode.env.uriScheme}://${publisher}.${name}`,
@@ -704,7 +704,13 @@ export class WebAuthService extends EventEmitter<AuthServiceEvents> implements A
 			signal: AbortSignal.timeout(10000),
 		})
 
-		return clerkOrganizationMembershipsSchema.parse(await response.json()).response
+		if (response.ok) {
+			return clerkOrganizationMembershipsSchema.parse(await response.json()).response
+		}
+
+		const errorMessage = `Failed to get organization memberships: ${response.status} ${response.statusText}`
+		this.log(`[auth] ${errorMessage}`)
+		throw new Error(errorMessage)
 	}
 
 	private async getOrganizationMetadata(

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react"
+import { useState, useEffect, FormEvent } from "react"
 import { VSCodeTextArea, VSCodeCheckbox } from "@vscode/webview-ui-toolkit/react"
+import { MessageSquare } from "lucide-react"
 
 import { supportPrompt, SupportPromptType } from "@roo/support-prompt"
 
@@ -8,16 +9,17 @@ import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { useExtensionState } from "@src/context/ExtensionStateContext"
 import {
 	Button,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
+	SearchableSelect,
+	// Select,
+	// SelectContent,
+	// SelectItem,
+	// SelectTrigger,
+	// SelectValue,
 	StandardTooltip,
 } from "@src/components/ui"
+
 import { SectionHeader } from "./SectionHeader"
 import { Section } from "./Section"
-import { MessageSquare } from "lucide-react"
 
 interface PromptsSettingsProps {
 	customSupportPrompts: Record<string, string | undefined>
@@ -145,20 +147,19 @@ const PromptsSettings = ({
 
 			<Section>
 				<div>
-					<Select
+					<SearchableSelect
 						value={activeSupportOption}
-						onValueChange={(type) => setActiveSupportOption(type as SupportPromptType)}>
-						<SelectTrigger className="w-full" data-testid="support-prompt-select-trigger">
-							<SelectValue placeholder={t("settings:common.select")} />
-						</SelectTrigger>
-						<SelectContent>
-							{Object.keys(supportPrompt.default).map((type) => (
-								<SelectItem key={type} value={type} data-testid={`${type}-option`}>
-									{t(`prompts:supportPrompts.types.${type}.label`)}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
+						onValueChange={(type) => setActiveSupportOption(type as SupportPromptType)}
+						options={Object.keys(supportPrompt.default).map((type) => ({
+							value: type,
+							label: t(`prompts:supportPrompts.types.${type}.label`),
+						}))}
+						placeholder={t("settings:common.select")}
+						searchPlaceholder={""}
+						emptyMessage={""}
+						className="w-full"
+						data-testid="provider-select"
+					/>
 					<div className="text-sm text-vscode-descriptionForeground mt-1">
 						{t(`prompts:supportPrompts.types.${activeSupportOption}.description`)}
 					</div>
@@ -198,7 +199,7 @@ const PromptsSettings = ({
 										? t("prompts:supportPrompts.enhance.apiConfiguration")
 										: t("prompts:supportPrompts.condense.apiConfiguration")}
 								</label>
-								<Select
+								<SearchableSelect
 									value={
 										activeSupportOption === "ENHANCE"
 											? enhancementApiConfigId || "-"
@@ -215,36 +216,32 @@ const PromptsSettings = ({
 										} else {
 											setCondensingApiConfigId(newConfigId)
 											vscode.postMessage({
-												type: "condensingApiConfigId",
-												text: newConfigId,
+												type: "updateSettings",
+												updatedSettings: { condensingApiConfigId: newConfigId },
 											})
 										}
-									}}>
-									<SelectTrigger data-testid="api-config-select" className="w-full">
-										<SelectValue
-											placeholder={
+									}}
+									options={[
+										{
+											id: "-",
+											name:
 												activeSupportOption === "ENHANCE"
 													? t("prompts:supportPrompts.enhance.useCurrentConfig")
-													: t("prompts:supportPrompts.condense.useCurrentConfig")
-											}
-										/>
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="-">
-											{activeSupportOption === "ENHANCE"
-												? t("prompts:supportPrompts.enhance.useCurrentConfig")
-												: t("prompts:supportPrompts.condense.useCurrentConfig")}
-										</SelectItem>
-										{(listApiConfigMeta || []).map((config) => (
-											<SelectItem
-												key={config.id}
-												value={config.id}
-												data-testid={`${config.id}-option`}>
-												{config.name}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+													: t("prompts:supportPrompts.condense.useCurrentConfig"),
+										},
+										...(listApiConfigMeta || []),
+									].map(({ id, name }) => ({ value: id, label: name }))}
+									placeholder={
+										activeSupportOption === "ENHANCE"
+											? t("prompts:supportPrompts.enhance.useCurrentConfig")
+											: t("prompts:supportPrompts.condense.useCurrentConfig")
+									}
+									searchPlaceholder={""}
+									emptyMessage={""}
+									disabledSearch
+									className="w-full"
+									data-testid="provider-select"
+								/>
 								<div className="text-sm text-vscode-descriptionForeground mt-1">
 									{activeSupportOption === "ENHANCE"
 										? t("prompts:supportPrompts.enhance.apiConfigDescription")
@@ -257,12 +254,20 @@ const PromptsSettings = ({
 									<div>
 										<VSCodeCheckbox
 											checked={includeTaskHistoryInEnhance}
-											onChange={(e: any) => {
-												const value = e.target.checked
-												setIncludeTaskHistoryInEnhance(value)
+											onChange={(e: Event | FormEvent<HTMLElement>) => {
+												const target = (
+													"target" in e ? e.target : null
+												) as HTMLInputElement | null
+
+												if (!target) {
+													return
+												}
+
+												setIncludeTaskHistoryInEnhance(target.checked)
+
 												vscode.postMessage({
-													type: "includeTaskHistoryInEnhance",
-													bool: value,
+													type: "updateSettings",
+													updatedSettings: { includeTaskHistoryInEnhance: target.checked },
 												})
 											}}>
 											<span className="font-medium">
@@ -289,7 +294,7 @@ const PromptsSettings = ({
 										/>
 										<div className="mt-2 flex justify-start items-center gap-2">
 											<Button
-												variant="default"
+												variant="primary"
 												onClick={handleTestEnhancement}
 												disabled={isEnhancing}>
 												{t("prompts:supportPrompts.enhance.previewButton")}

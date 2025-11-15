@@ -22,6 +22,8 @@ import { languagesSchema } from "./vscode.js"
  */
 export const DEFAULT_WRITE_DELAY_MS = 1000
 
+export const MAX_WORKSPACE_FILES = 200
+
 /**
  * Default terminal output character limit constant.
  * This provides a reasonable default that aligns with typical terminal usage
@@ -58,6 +60,7 @@ export const globalSettingsSchema = z.object({
 	customInstructions: z.string().optional(),
 	taskHistory: z.array(historyItemSchema).optional(),
 	dismissedUpsells: z.array(z.string()).optional(),
+	clickedOnceNotices: z.array(z.number()).optional(),
 
 	// Image generation settings (experimental) - flattened for simplicity
 	openRouterImageApiKey: z.string().optional(),
@@ -231,6 +234,7 @@ export const SECRET_STATE_KEYS = [
 	"doubaoApiKey",
 	"moonshotApiKey",
 	"mistralApiKey",
+	"minimaxApiKey",
 	"unboundApiKey",
 	"requestyApiKey",
 	"xaiApiKey",
@@ -244,6 +248,7 @@ export const SECRET_STATE_KEYS = [
 	"codebaseIndexGeminiApiKey",
 	"codebaseIndexMistralApiKey",
 	"codebaseIndexVercelAiGatewayApiKey",
+	"codebaseIndexOpenRouterApiKey",
 	"huggingFaceApiKey",
 	"sambaNovaApiKey",
 	"zaiApiKey",
@@ -350,7 +355,7 @@ export const EVALS_SETTINGS: RooCodeSettings = {
 
 	rateLimitSeconds: 0,
 	maxOpenTabsContext: 20,
-	maxWorkspaceFiles: 200,
+	maxWorkspaceFiles: MAX_WORKSPACE_FILES,
 	showRooIgnoredFiles: true,
 	maxReadFileLine: 500, // -1 to enable full file reading.
 

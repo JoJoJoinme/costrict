@@ -11,7 +11,7 @@ import type { ClineProvider } from "../webview/ClineProvider"
 // Import from migrated modules
 import { AICompletionProvider, CompletionStatusBar, shortKeyCut } from "./completion"
 
-import { MyCodeLensProvider, codeLensCallBackCommand, codeLensCallBackMoreCommand } from "./codelens"
+import { CostrictCodeLensProvider, codeLensCallBackCommand, codeLensCallBackMoreCommand } from "./codelens"
 
 import {
 	configCompletion,
@@ -27,6 +27,7 @@ import { ZgsmAuthApi, ZgsmAuthCommands, ZgsmAuthService, ZgsmAuthStorage } from 
 import { initCodeReview } from "./code-review"
 import { initTelemetry } from "./telemetry"
 import { initErrorCodeManager } from "./error-code"
+import { NotificationService } from "./notification"
 import { Package } from "../../shared/package"
 import { createLogger, ILogger, deactivate as loggerDeactivate } from "../../utils/logger"
 import {
@@ -170,7 +171,7 @@ export async function activate(
 			codeLensCallBackMoreCommand.callback(context),
 		),
 		// Register function header menu
-		vscode.languages.registerCodeLensProvider("*", new MyCodeLensProvider()),
+		vscode.languages.registerCodeLensProvider("*", new CostrictCodeLensProvider()),
 	)
 
 	// Listen for configuration changes
@@ -235,6 +236,9 @@ export async function activate(
 export async function deactivate() {
 	// Stop periodic health checks
 	ZgsmCodebaseIndexManager.getInstance().stopHealthCheck()
+
+	// Stop periodic notice fetching
+	NotificationService.getInstance().stopPeriodicFetch()
 
 	// ZgsmCodebaseIndexManager.getInstance().stopExistingClient()
 	// Clean up IPC connections

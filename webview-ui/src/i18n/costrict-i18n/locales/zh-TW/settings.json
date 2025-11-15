@@ -46,7 +46,7 @@
 			"projectIdDescription": "若為企業或非免費方案存取，請指定您的 Google Cloud 專案 ID。如使用個人帳號並希望自動探索專案，請留空。如果您遇到 API 錯誤，建議填寫專案 ID。"
 		},
 		"consecutiveMistakeLimit": {
-			"description": "在顯示「CoStrict 遇到問題」對話方塊前允許的連續錯誤或重複操作次數"
+			"description": "在顯示「CoStrict 遇到問題」對話方塊前允許的連續錯誤或重複操作次數。設定為 0 可停用此安全機制（永不觸發）。"
 		}
 	},
 	"browser": {
@@ -94,9 +94,6 @@
 		"autoCondenseContextPercent": {
 			"description": "當上下文窗口達到此閾值時，CoStrict 將自動壓縮它。"
 		},
-		"SEARCH_AND_REPLACE": {
-			"description": "啟用實驗性的搜索和替換工具，允許 CoStrict 在一個請求中替換搜索詞的多實例。"
-		},
 		"INSERT_BLOCK": {
 			"description": "啟用實驗性的插入內容工具，允許 CoStrict 在特定行號插入內容，無需創建差異。"
 		},
@@ -130,6 +127,10 @@
 			"previous": "上一個結果",
 			"next": "下一個結果",
 			"close": "關閉搜尋"
+		},
+		"ALWAYS_INCLUDE_FILE_DETAILS": {
+			"name": "目錄信息增強",
+			"description": "啟用後，CoStrict 將始終包含項目目錄詳細信息。"
 		}
 	},
 	"modelPicker": {
@@ -172,7 +173,7 @@
 			"noFailedFiles": "暫無失敗檔案資訊",
 			"rebuild": "重新建置",
 			"onlyCostrictProviderSupport": "僅 CoStrict 提供商支援此服務",
-			"codebaseIndexDisabled": "Codebase 索引建置已禁用",
+			"codebaseIndexDisabled": "Codebase 索引建置已禁用: 未找到工作空間資料夾",
 			"title": "語義索引建置",
 			"description": "為提高代碼補全等功能效果，系統會自動將相關語義索引同步建置上傳，方便模型對上下文進行分析理解。"
 		},
@@ -204,5 +205,10 @@
 			"failedToDisableCodebaseIndex": "Failed to disable codebase index:",
 			"failedToCopyToClipboard": "Failed to copy to clipboard:"
 		}
+	},
+	"autoMode": {
+		"discountTitle": "auto模式折扣",
+		"discount": "{{discount}} 折扣",
+		"consumptionTitle": "使用該模型消耗的credit"
 	}
 }

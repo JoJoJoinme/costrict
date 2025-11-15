@@ -11,6 +11,7 @@ import { CodeReviewService } from "./codeReviewService"
 import { CommentService } from "../../../integrations/comment"
 import type { ReviewComment } from "./reviewComment"
 import { supportPrompt } from "../../../shared/support-prompt"
+import { t } from "../../../i18n"
 export function initCodeReview(
 	context: vscode.ExtensionContext,
 	provider: ClineProvider,
@@ -36,10 +37,13 @@ export function initCodeReview(
 			if (!visibleProvider || !editor) {
 				return
 			}
+			reviewInstance.setProvider(visibleProvider)
+			if (!(await reviewInstance.checkApiProviderSupport())) {
+				return
+			}
 			const fileUri = editor.document.uri
 			const range = editor.selection
 			const cwd = visibleProvider.cwd.toPosix()
-			reviewInstance.setProvider(visibleProvider)
 			const filePath = toRelativePath(fileUri.fsPath.toPosix(), cwd)
 			const params = {
 				filePath,
@@ -61,6 +65,10 @@ export function initCodeReview(
 			if (!visibleProvider) {
 				return
 			}
+			reviewInstance.setProvider(visibleProvider)
+			if (!(await reviewInstance.checkApiProviderSupport())) {
+				return
+			}
 			const cwd = visibleProvider.cwd.toPosix()
 			const targets: ReviewTarget[] = await Promise.all(
 				selectedUris.map(async (uri) => {
@@ -71,7 +79,6 @@ export function initCodeReview(
 					}
 				}),
 			)
-			reviewInstance.setProvider(visibleProvider)
 			reviewInstance.startReview(targets)
 		},
 		reviewRepo: async () => {
@@ -80,6 +87,9 @@ export function initCodeReview(
 				return
 			}
 			reviewInstance.setProvider(visibleProvider)
+			if (!(await reviewInstance.checkApiProviderSupport())) {
+				return
+			}
 			reviewInstance.startReview([
 				{
 					type: ReviewTargetType.FOLDER,
@@ -125,6 +135,10 @@ export function initCodeReview(
 			if (!visibleProvider) {
 				return
 			}
+			reviewInstance.setProvider(visibleProvider)
+			if (!(await reviewInstance.checkApiProviderSupport())) {
+				return
+			}
 			visibleProvider.log(`[CodeReview] start review ${args}`)
 
 			const data = args?.[0]?.[0]
@@ -139,7 +153,6 @@ export function initCodeReview(
 			)
 
 			const cwd = visibleProvider.cwd.toPosix()
-			reviewInstance.setProvider(visibleProvider)
 			const params = {
 				filePath,
 				endLine: endLine + "",
@@ -160,6 +173,10 @@ export function initCodeReview(
 			if (!visibleProvider) {
 				return
 			}
+			reviewInstance.setProvider(visibleProvider)
+			if (!(await reviewInstance.checkApiProviderSupport())) {
+				return
+			}
 			visibleProvider.log(`[CodeReview] start review ${JSON.stringify(args)}`)
 			const data = args?.[0]?.[0]
 			if (!data) {
@@ -176,7 +193,6 @@ export function initCodeReview(
 					}
 				}),
 			)
-			reviewInstance.setProvider(visibleProvider)
 			reviewInstance.startReview(targets)
 		},
 		acceptIssueJetbrains: async (args: any) => {

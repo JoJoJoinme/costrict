@@ -1,9 +1,19 @@
-import { VSCodeButton, VSCodeCheckbox, VSCodeTextField, VSCodeLink } from "@vscode/webview-ui-toolkit/react"
+import { VSCodeCheckbox, VSCodeTextField, VSCodeLink } from "@vscode/webview-ui-toolkit/react"
 import { SquareMousePointer } from "lucide-react"
 import { HTMLAttributes, useEffect, useMemo, useState } from "react"
 import { Trans } from "react-i18next"
 
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Slider } from "@/components/ui"
+import {
+	// Select,
+	// SelectContent,
+	// SelectGroup,
+	// SelectItem,
+	// SelectTrigger,
+	// SelectValue,
+	Slider,
+	Button,
+	SearchableSelect,
+} from "@/components/ui"
 import { useAppTranslation } from "@/i18n/TranslationContext"
 import { vscode } from "@/utils/vscode"
 import { buildDocLink } from "@src/utils/docLinks"
@@ -128,22 +138,17 @@ export const BrowserSettings = ({
 					<div className="flex flex-col gap-3 pl-3 border-l-2 border-vscode-button-background">
 						<div>
 							<label className="block font-medium mb-1">{t("settings:browser.viewport.label")}</label>
-							<Select
+							<SearchableSelect
 								value={browserViewportSize}
-								onValueChange={(value) => setCachedStateField("browserViewportSize", value)}>
-								<SelectTrigger className="w-full">
-									<SelectValue placeholder={t("settings:common.select")} />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectGroup>
-										{options.map(({ value, label }) => (
-											<SelectItem key={value} value={value}>
-												{label}
-											</SelectItem>
-										))}
-									</SelectGroup>
-								</SelectContent>
-							</Select>
+								onValueChange={(value) => setCachedStateField("browserViewportSize", value)}
+								options={options}
+								placeholder={t("settings:common.select")}
+								searchPlaceholder={""}
+								emptyMessage={""}
+								className="w-full"
+								disabledSearch
+								data-testid="provider-select"
+							/>
 							<div className="text-vscode-descriptionForeground text-sm mt-1">
 								{t("settings:browser.viewport.description")}
 							</div>
@@ -198,11 +203,11 @@ export const BrowserSettings = ({
 										placeholder={t("settings:browser.remote.urlPlaceholder")}
 										style={{ flexGrow: 1 }}
 									/>
-									<VSCodeButton disabled={testingConnection} onClick={testConnection}>
+									<Button disabled={testingConnection} onClick={testConnection}>
 										{testingConnection || discovering
 											? t("settings:browser.remote.testingButton")
 											: t("settings:browser.remote.testButton")}
-									</VSCodeButton>
+									</Button>
 								</div>
 								{testResult && (
 									<div

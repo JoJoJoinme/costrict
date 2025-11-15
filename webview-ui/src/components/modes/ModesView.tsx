@@ -20,6 +20,7 @@ import {
 	getCustomInstructions,
 	getAllModes,
 	findModeBySlug as findCustomModeBySlug,
+	defaultModeSlug,
 } from "@roo/modes"
 import { TOOL_GROUPS } from "@roo/tools"
 
@@ -30,11 +31,11 @@ import { useExtensionState } from "@src/context/ExtensionStateContext"
 import { Tab, TabContent, TabHeader } from "@src/components/common/Tab"
 import {
 	Button,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
+	// Select,
+	// SelectContent,
+	// SelectItem,
+	// SelectTrigger,
+	// SelectValue,
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
@@ -46,6 +47,7 @@ import {
 	CommandGroup,
 	Input,
 	StandardTooltip,
+	SearchableSelect,
 } from "@src/components/ui"
 import { DeleteModeDialog } from "@src/components/modes/DeleteModeDialog"
 import { useEvent } from "react-use"
@@ -56,6 +58,8 @@ import { useEscapeKey } from "@src/hooks/useEscapeKey"
 const availableGroups = (Object.keys(TOOL_GROUPS) as ToolGroup[]).filter((group) => !TOOL_GROUPS[group].alwaysAvailable)
 
 type ModeSource = "global" | "project"
+
+type ImportModeResult = { type: "importModeResult"; success: boolean; slug?: string; error?: string }
 
 type ModesViewProps = {
 	onDone: () => void
@@ -187,6 +191,29 @@ const ModesView = ({ onDone }: ModesViewProps) => {
 		},
 		[visualMode, switchMode],
 	)
+
+	// Refs to track latest state/functions for message handler (which has no dependencies)
+	const handleModeSwitchRef = useRef(handleModeSwitch)
+	const customModesRef = useRef(customModes)
+	const switchModeRef = useRef(switchMode)
+
+	// Update refs when dependencies change
+	useEffect(() => {
+		handleModeSwitchRef.current = handleModeSwitch
+	}, [handleModeSwitch])
+
+	useEffect(() => {
+		customModesRef.current = customModes
+	}, [customModes])
+
+	useEffect(() => {
+		switchModeRef.current = switchMode
+	}, [switchMode])
+
+	// Sync visualMode with backend mode changes to prevent desync
+	useEffect(() => {
+		setVisualMode(mode)
+	}, [mode])
 
 	// Handler for popover open state change
 	const onOpenChange = useCallback((open: boolean) => {
@@ -462,7 +489,21 @@ const ModesView = ({ onDone }: ModesViewProps) => {
 				setIsImporting(false)
 				setShowImportDialog(false)
 
-				if (!message.success) {
+				if (message.success) {
+					const { slug } = message as ImportModeResult
+					if (slug) {
+						// Try switching using the freshest mode list available
+						const all = getAllModes(customModesRef.current)
+						const importedMode = all.find((m) => m.slug === slug)
+						if (importedMode) {
+							handleModeSwitchRef.current(importedMode)
+						} else {
+							// Fallback: slug not yet in state (race condition) - select default mode
+							setVisualMode(defaultModeSlug)
+							switchModeRef.current?.(defaultModeSlug)
+						}
+					}
+				} else {
 					// Only log error if it's not a cancellation
 					if (message.error !== "cancelled") {
 						console.error("Failed to import mode:", message.error)
@@ -731,25 +772,25 @@ const ModesView = ({ onDone }: ModesViewProps) => {
 							{t("prompts:apiConfiguration.select")}
 						</div>
 						<div className="mb-2">
-							<Select
+							<SearchableSelect
 								value={currentApiConfigName}
 								onValueChange={(value) => {
 									vscode.postMessage({
 										type: "loadApiConfiguration",
 										text: value,
 									})
-								}}>
-								<SelectTrigger className="w-full">
-									<SelectValue placeholder={t("settings:common.select")} />
-								</SelectTrigger>
-								<SelectContent>
-									{(listApiConfigMeta || []).map((config) => (
-										<SelectItem key={config.id} value={config.name}>
-											{config.name}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
+								}}
+								options={(listApiConfigMeta || []).map(({ name }) => ({
+									label: name,
+									value: name,
+								}))}
+								placeholder={t("settings:common.select")}
+								searchPlaceholder={""}
+								emptyMessage={""}
+								className="w-full"
+								disabledSearch
+								data-testid="provider-select"
+							/>
 						</div>
 					</div>
 				</div>
@@ -919,7 +960,13 @@ const ModesView = ({ onDone }: ModesViewProps) => {
 							value={(() => {
 								const customMode = findModeBySlug(visualMode, customModes)
 								const prompt = customModePrompts?.[visualMode] as PromptComponent
-								return customMode?.description ?? prompt?.description ?? getDescription(visualMode)
+								return (
+									customMode?.description ??
+									t(`modes:descriptions.${visualMode}`, {
+										defaultValue: prompt?.description,
+									}) ??
+									getDescription(visualMode)
+								)
 							})()}
 							onChange={(e) => {
 								const value =
@@ -1207,7 +1254,7 @@ const ModesView = ({ onDone }: ModesViewProps) => {
 				<div className="pb-4 border-b border-vscode-input-border">
 					<div className="flex gap-2 mb-4">
 						<Button
-							variant="default"
+							variant="primary"
 							onClick={() => {
 								const currentMode = getCurrentMode()
 								if (currentMode) {
@@ -1244,7 +1291,7 @@ const ModesView = ({ onDone }: ModesViewProps) => {
 						{/* Export button - visible when any mode is selected */}
 						{getCurrentMode() && (
 							<Button
-								variant="default"
+								variant="primary"
 								onClick={() => {
 									const currentMode = getCurrentMode()
 									if (currentMode?.slug && !isExporting) {
@@ -1264,7 +1311,7 @@ const ModesView = ({ onDone }: ModesViewProps) => {
 						)}
 						{/* Import button - always visible */}
 						<Button
-							variant="default"
+							variant="primary"
 							onClick={() => setShowImportDialog(true)}
 							disabled={isImporting}
 							title={t("prompts:modes.importMode")}
@@ -1584,7 +1631,7 @@ const ModesView = ({ onDone }: ModesViewProps) => {
 							<Button variant="secondary" onClick={() => setIsCreateModeDialogOpen(false)}>
 								{t("prompts:createModeDialog.buttons.cancel")}
 							</Button>
-							<Button variant="default" onClick={handleCreateMode}>
+							<Button variant="primary" onClick={handleCreateMode}>
 								{t("prompts:createModeDialog.buttons.create")}
 							</Button>
 						</div>
@@ -1661,7 +1708,7 @@ const ModesView = ({ onDone }: ModesViewProps) => {
 								{t("prompts:createModeDialog.buttons.cancel")}
 							</Button>
 							<Button
-								variant="default"
+								variant="primary"
 								onClick={() => {
 									if (!isImporting) {
 										const selectedLevel = (

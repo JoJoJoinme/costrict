@@ -46,7 +46,7 @@
 			"projectIdDescription": "Specify your Google Cloud Project ID for enterprise or non-free tier access. Leave empty for automatic project discovery with personal accounts. If you encounter an API Error, it is recommended to fill in the Project ID."
 		},
 		"consecutiveMistakeLimit": {
-			"description": "Number of consecutive errors or repeated actions allowed before showing the \"CoStrict is having trouble\" dialog"
+			"description": "Number of consecutive errors or repeated actions allowed before showing the \"CoStrict is having trouble\" dialog. Set to 0 to disable this safety mechanism (it will never trigger)."
 		}
 	},
 	"browser": {
@@ -94,9 +94,6 @@
 		"autoCondenseContextPercent": {
 			"description": "When the context window reaches this threshold, CoStrict will automatically condense it."
 		},
-		"SEARCH_AND_REPLACE": {
-			"description": "Enable the experimental search and replace tool, allowing CoStrict to replace multiple instances of a search term in one request."
-		},
 		"INSERT_BLOCK": {
 			"description": "Enable the experimental insert content tool, allowing CoStrict to insert content at specific line numbers without needing to create a diff."
 		},
@@ -130,6 +127,10 @@
 			"previous": "Previous result",
 			"next": "Next result",
 			"close": "Close search"
+		},
+		"ALWAYS_INCLUDE_FILE_DETAILS": {
+			"name": "Enable Directory Details",
+			"description": "When enabled, CoStrict will include directory details in the context window."
 		}
 	},
 	"modelPicker": {
@@ -172,7 +173,7 @@
 			"noFailedFiles": "No failed files information",
 			"rebuild": "Rebuild",
 			"onlyCostrictProviderSupport": "Only CoStrict provider supports this service",
-			"codebaseIndexDisabled": "Codebase index build is disabled",
+			"codebaseIndexDisabled": "Codebase index build is disabled: No workspace folder found",
 			"title": "Semantic Index Build",
 			"description": "To improve code completion and other features, the system automatically builds and uploads semantic indexes for model context analysis and understanding."
 		},
@@ -204,5 +205,10 @@
 			"failedToDisableCodebaseIndex": "Failed to disable codebase index:",
 			"failedToCopyToClipboard": "Failed to copy to clipboard:"
 		}
+	},
+	"autoMode": {
+		"discountTitle": "auto模式折扣",
+		"discount": "{{discount}} 折扣",
+		"consumptionTitle": "使用该模型消耗的credit"
 	}
 }
